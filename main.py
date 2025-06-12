@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import streamlit as st
 
 def preprocess_earthquake_data(df):
     """
@@ -18,7 +19,9 @@ def count_and_log_transform(df):
     """
     mag_counts = df['Magnitude_Rounded'].value_counts().sort_index()
     # Ensure no log of zero if a magnitude has no counts, although value_counts handles this
-    log_counts = np.log10(mag_counts[mag_counts > 0])
+    # Filter out magnitudes with zero counts before taking log10
+    mag_counts_filtered = mag_counts[mag_counts > 0]
+    log_counts = np.log10(mag_counts_filtered)
     return mag_counts, log_counts
 
 def fit_gutenberg_richter(X, y):
@@ -31,7 +34,6 @@ def fit_gutenberg_richter(X, y):
 
     # Calculate coefficients using the normal equation: theta = (X_b.T * X_b)^-1 * X_b.T * y
     # Using np.linalg.lstsq for numerical stability and handling singular matrices
-    # lstsq returns (coefficients, residuals, rank, singular_values)
     coefficients, residuals_sum_squares, rank, s = np.linalg.lstsq(X_b, y, rcond=None)
 
     a = coefficients[0]  # Intercept
@@ -56,8 +58,9 @@ def make_result_df(mag_counts, log_counts, y_pred, residuals):
     }).reset_index().rename(columns={'index': 'Magnitude'})
 
     # Create a DataFrame for predictions and residuals, ensuring alignment
+    # Use the 'Magnitude' column from the combined_df to ensure consistent index
     pred_res_df = pd.DataFrame({
-        'Magnitude': mag_counts.index, # Use the same index as mag_counts
+        'Magnitude': combined_df['Magnitude'],
         'Predicted log10(Count)': y_pred,
         'Residual': residuals
     })
@@ -105,7 +108,7 @@ def plot_regression(result_df, a, b):
         line=dict(color='red')
     ))
     fig.update_layout(
-        title=f"log$_{{10}}$(N) = {a:.2f} - {b:.2f}M", # LaTeX-like formatting for title
+        title=f"log$_{{10}}$(N) = {a:.2f} - {b:.2f}M",
         xaxis_title="Magnitude",
         yaxis_title="log$_{{10}}$(Occurrences)"
     )
@@ -130,46 +133,75 @@ def plot_residuals(result_df):
     )
     return fig
 
-# Example Usage (assuming you have a DataFrame 'df' loaded)
-if __name__ == '__main__':
-    # Create a dummy DataFrame for demonstration
-    data = {
-        'Magnitude': [1.2, 1.3, 1.5, 1.5, 1.8, 2.0, 2.1, 2.1, 2.3, 2.5,
-                      2.5, 2.6, 2.8, 3.0, 3.1, 3.2, 3.5, 3.5, 3.8, 4.0,
-                      4.1, 4.2, 4.5, 4.8, 5.0, 5.1, 5.5, 5.8, 6.0, 6.2,
-                      6.5, 6.8, 7.0]
-    }
-    df = pd.DataFrame(data)
+# --- Streamlit Application ---
+st.set_page_config(layout="wide")
+st.title("지진 구텐베르크-릭터 법칙 분석")
+
+st.write("지진 데이터셋을 업로드하여 구텐베르크-릭터 법칙을 분석하고 시각화합니다. Magnitude(규모) 열이 포함된 CSV 파일을 사용해주세요.")
+
+uploaded_file = st.file_uploader("CSV 파일 업로드", type="csv")
+
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+
+    st.subheader("원본 데이터 미리보기")
+    st.dataframe(df.head())
 
     # 1. Preprocess the data
     processed_df = preprocess_earthquake_data(df.copy()) # Use .copy() to avoid SettingWithCopyWarning
 
+    st.subheader("전처리된 데이터 요약")
+    st.write(f"총 유효 지진 기록: {len(processed_df)}개")
+    st.dataframe(processed_df.head())
+
     # 2. Count and log transform
     mag_counts, log_counts = count_and_log_transform(processed_df)
 
-    # Prepare data for regression
-    X = mag_counts.index.values.reshape(-1, 1) # Magnitude
-    y = log_counts.values.reshape(-1, 1) # log10(Count)
+    # Filter out magnitudes with zero counts for regression
+    # This ensures X and y have consistent lengths
+    valid_magnitudes = log_counts.index.values
+    valid_log_counts = log_counts.values
 
-    # 3. Fit Gutenberg-Richter law
-    a, b, y_pred, residuals = fit_gutenberg_richter(X, y)
+    X = valid_magnitudes.reshape(-1, 1) # Magnitude
+    y = valid_log_counts.reshape(-1, 1) # log10(Count)
 
-    print(f"Gutenberg-Richter Law: log10(N) = {a:.2f} - {b:.2f}M")
+    if len(X) > 1: # Ensure enough data points for regression
+        # 3. Fit Gutenberg-Richter law
+        a, b, y_pred, residuals = fit_gutenberg_richter(X, y)
 
-    # 4. Make result DataFrame
-    result_df = make_result_df(mag_counts, log_counts, y_pred, residuals)
-    print("\nResult DataFrame:")
-    print(result_df)
+        st.subheader("구텐베르크-릭터 법칙 파라미터")
+        st.info(f"$\\log_{{10}}(N) = \\mathbf{{{a:.2f}}} - \\mathbf{{{b:.2f}}}M$")
+        st.markdown(f"- $a$ 값 (절편): {a:.2f}")
+        st.markdown(f"- $b$ 값 (기울기): {b:.2f}")
+        st.markdown("($N$: 규모 $M$ 이상의 지진 횟수)")
 
-    # 5. Plotting
-    # Bar chart of counts
-    fig_bar = plot_bar_counts(result_df)
-    fig_bar.show()
+        # 4. Make result DataFrame
+        result_df = make_result_df(mag_counts, log_counts, y_pred, residuals)
 
-    # Regression plot
-    fig_regression = plot_regression(result_df, a, b)
-    fig_regression.show()
+        st.subheader("분석 결과 데이터프레임")
+        st.dataframe(result_df)
 
-    # Residuals plot
-    fig_residuals = plot_residuals(result_df)
-    fig_residuals.show()
+        # 5. Plotting
+        st.subheader("시각화")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            fig_bar = plot_bar_counts(result_df)
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        with col2:
+            fig_regression = plot_regression(result_df, a, b)
+            st.plotly_chart(fig_regression, use_container_width=True)
+
+        st.subheader("잔차 분석")
+        fig_residuals = plot_residuals(result_df)
+        st.plotly_chart(fig_residuals, use_container_width=True)
+
+        st.write("잔차는 관측값과 예측값의 차이를 나타냅니다. 잔차가 0에 가까울수록 모델이 데이터를 잘 설명한다고 볼 수 있습니다.")
+
+    else:
+        st.warning("회귀 분석을 수행하기에 충분한(2개 이상의) 유효한 규모 데이터 포인트가 없습니다.")
+
+else:
+    st.info("시작하려면 CSV 파일을 업로드해주세요.")
