@@ -3,6 +3,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+from utils import (
+    preprocess_earthquake_data,
+    count_and_log_transform,
+    fit_gutenberg_richter,
+    make_result_df,
+    plot_bar_counts,
+    plot_regression,
+    plot_residuals
+)
 
 st.set_page_config(page_title="지진 발생 가능성 분석", layout="wide")
 
