@@ -93,5 +93,5 @@ st.plotly_chart(plot_residuals(result_df), use_container_width=True)
 most_under_observed_magnitude = result_df.loc[result_df['Residual'].idxmin()]
 
 st.markdown(
-    f"#### 📌 현재까지 관측된 것보다 **앞으로 발생 가능성이 더 높을 수 있는** 규모 : **{most_under_observed_magnitude['Magnitude']}**"
+    f"#### 📌 앞으로 발생 가능성이 높은 규모 : **{most_under_observed_magnitude['Magnitude']}**"
 )
