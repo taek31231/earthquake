@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import koreanize_matplotlib
+import plotly.graph_objects as go
+import folium
+from streamlit_folium import folium_static
 from sklearn.linear_model import LinearRegression
 from utils import (
     preprocess_earthquake_data,
@@ -14,86 +15,69 @@ from utils import (
     plot_residuals
 )
 
+# 페이지 설정
+st.set_page_config(page_title="지진 발생 분석 대시보드", layout="wide")
+st.title("🌍 전 세계 지진 분석 (2001~2023)")
 
-st.set_page_config(page_title="지진 발생 가능성 분석", layout="wide")
+# 데이터 업로드
+df = pd.read_csv("streamlit_app/database.csv")
+df = preprocess_earthquake_data(df)
 
-st.title("🌍 Gutenberg-Richter 기반 지진 규모 예측")
+# 국가 필터링을 위한 좌표 범위 설정 (일부 예시)
+country_bounds = {
+    "Japan": [30, 46, 129, 146],   # lat_min, lat_max, lon_min, lon_max
+    "USA": [24, 50, -125, -66],
+    "Chile": [-56, -17, -76, -66],
+    "Indonesia": [-11, 6, 95, 141],
+    "South Korea": [33, 39, 124, 132]
+}
 
-# 파일 업로드
-st.sidebar.header("CSV 데이터 업로드")
-uploaded_file = st.sidebar.file_uploader("지진 데이터 (CSV)", type=["csv"])
+selected_country = st.selectbox("국가 선택", list(country_bounds.keys()))
+lat_min, lat_max, lon_min, lon_max = country_bounds[selected_country]
 
-if uploaded_file is not None:
-    # 데이터 로드
-    df = pd.read_csv(uploaded_file)
-    df['Magnitude'] = pd.to_numeric(df['Magnitude'], errors='coerce')
-    df = df.dropna(subset=['Magnitude'])
-    df['Magnitude_Rounded'] = df['Magnitude'].round(1)
+# 선택한 국가의 지진만 필터링 (규모 3.0 ~ 7.5)
+df_filtered = df[
+    (df['Latitude'].between(lat_min, lat_max)) &
+    (df['Longitude'].between(lon_min, lon_max)) &
+    (df['Magnitude'] >= 3.0) &
+    (df['Magnitude'] <= 7.5)
+]
 
-    # 규모별 발생 횟수
-    mag_counts = df['Magnitude_Rounded'].value_counts().sort_index()
-    log_counts = np.log10(mag_counts)
+st.markdown(f"### 🇨🇭 {selected_country}에서 발생한 지진 데이터 수: {len(df_filtered)}개")
 
-    # 회귀 분석
-    X = mag_counts.index.values.reshape(-1, 1)
-    y = log_counts.values.reshape(-1, 1)
+# 지진 지도 시각화
+st.subheader("🗺️ 지진 발생 지점 (Folium 지도)")
+mid_lat = (lat_min + lat_max) / 2
+mid_lon = (lon_min + lon_max) / 2
 
-    model = LinearRegression().fit(X, y)
-    a = model.intercept_[0]
-    b = -model.coef_[0][0]
+m = folium.Map(location=[mid_lat, mid_lon], zoom_start=5)
 
-    y_pred = model.predict(X).flatten()
-    residuals = log_counts.values - y_pred
+for _, row in df_filtered.iterrows():
+    folium.CircleMarker(
+        location=[row['Latitude'], row['Longitude']],
+        radius=2 + (row['Magnitude'] - 3) * 2,
+        color='red',
+        fill=True,
+        fill_opacity=0.7,
+        popup=f"Magnitude: {row['Magnitude']}"
+    ).add_to(m)
 
-    # 결과 데이터프레임
-    result_df = pd.DataFrame({
-        'Magnitude': mag_counts.index,
-        'Count': mag_counts.values,
-        'log10(Count)': log_counts.values,
-        'Predicted log10(Count)': y_pred,
-        'Residual': residuals
-    })
+folium_static(m)
 
-    # 🔍 발생 가능성 높은 규모 추정 (예측보다 관측이 적은 규모 → anomaly가 큰 값)
-    likely_mag = result_df.sort_values(by='Residual').iloc[-1]['Magnitude']
+# Gutenberg-Richter 분석
+st.subheader("📈 Gutenberg-Richter 법칙 분석")
+mag_counts, log_counts = count_and_log_transform(df_filtered)
+X = mag_counts.index.values.reshape(-1, 1)
+y = log_counts.values.reshape(-1, 1)
 
-    # 📊 시각화
-    st.subheader("1. 규모별 지진 발생 빈도 (실제)")
-    fig1, ax1 = plt.subplots()
-    ax1.bar(result_df['Magnitude'], result_df['Count'], width=0.08, color='skyblue')
-    ax1.set_xlabel("Magnitude")
-    ax1.set_ylabel("Occurrences")
-    ax1.set_title("규모별 발생 횟수")
-    st.pyplot(fig1)
+a, b, y_pred, residuals = fit_gutenberg_richter(X, y)
+result_df = make_result_df(mag_counts, log_counts, y_pred, residuals)
 
-    st.subheader("2. Gutenberg-Richter 회귀 분석")
-    fig2, ax2 = plt.subplots()
-    ax2.scatter(result_df['Magnitude'], result_df['log10(Count)'], label='Observed', color='blue')
-    ax2.plot(result_df['Magnitude'], result_df['Predicted log10(Count)'], label='Predicted (GR Law)', color='red')
-    ax2.set_xlabel("Magnitude")
-    ax2.set_ylabel("log10(Occurrences)")
-    ax2.set_title(f"log10(N) = {a:.2f} - {b:.2f}M")
-    ax2.legend()
-    st.pyplot(fig2)
+# 시각화
+st.plotly_chart(plot_bar_counts(result_df), use_container_width=True)
+st.plotly_chart(plot_regression(result_df, a, b), use_container_width=True)
+st.plotly_chart(plot_residuals(result_df), use_container_width=True)
 
-    st.subheader("3. 잔차 (관측 - 예측) 분석")
-    fig3, ax3 = plt.subplots()
-    ax3.bar(result_df['Magnitude'], result_df['Residual'], width=0.08, color='orange')
-    ax3.axhline(0, color='black', linestyle='--')
-    ax3.set_xlabel("Magnitude")
-    ax3.set_ylabel("Residual")
-    ax3.set_title("잔차 (관측 log10 - 예측 log10)")
-    st.pyplot(fig3)
-
-    st.subheader("🔮 예측 결과")
-    st.markdown(f"""
-    - Gutenberg-Richter 회귀식:  
-      \[
-      \\log_{{10}}(N) = {a:.2f} - {b:.2f} \\cdot M
-      \]
-    - 관측 대비 예측보다 적게 발생한 규모 중 anomaly가 가장 큰 지진 규모는  
-      **`{likely_mag:.1f}`** 이며, 앞으로 이 규모에서 지진이 발생할 가능성이 높습니다.
-    """)
-
-else:
-    st.info("왼쪽 사이드바에서 지진 CSV 파일을 업로드하세요.")
+# 가장 잔차가 큰 지진 규모 표시
+worst_residual = result_df.loc[result_df['Residual'].idxmax()]
+st.markdown(f"#### 📌 현재까지 관측된 것보다 발생 가능성이 가장 높은 규모는: **{worst_residual['Magnitude']}**")
