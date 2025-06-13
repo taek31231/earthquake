@@ -88,8 +88,6 @@ st.plotly_chart(plot_regression(result_df, a, b), use_container_width=True)
 # 시각화 3: 잔차 (이상값 확인)
 st.plotly_chart(plot_residuals(result_df), use_container_width=True)
 
-# 가장 예측을 과소평가한 지진 규모 찾기
-most_underestimated = df.loc[df['Residual'].idxmin()]
-
-# 결과 표시
-st.markdown(f"#### 📌 곧 발생 가능성이 가장 높은 지진 규모는: **{most_underestimated['Magnitude']}**")
+# 가장 잔차가 큰 지진 규모 표시
+worst_residual = result_df.loc[result_df['Residual'].idxmax()]
+st.markdown(f"#### 📌 현재까지 관측된 것보다 발생 가능성이 가장 높은 규모는: **{worst_residual['Magnitude']}**")
