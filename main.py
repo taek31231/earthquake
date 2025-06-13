@@ -80,4 +80,4 @@ st.plotly_chart(plot_residuals(result_df), use_container_width=True)
 
 # 가장 잔차가 큰 지진 규모 표시
 worst_residual = result_df.loc[result_df['Residual'].idxmax()]
-st.markdown(f"#### 📌 현재까지 관측된 것보다 발생 가능성이 가장 높은 규모는: **{worst_residual['Magnitude']}**")
+st.markdown(f"#### 📌 곧 발생 가능성이 가장 높은 지진의 규모는: **{worst_residual['Magnitude']}**")
