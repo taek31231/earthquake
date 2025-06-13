@@ -23,14 +23,20 @@ st.title("🌍 전 세계 지진 분석 (2001~2023)")
 df = pd.read_csv("data/database.csv")
 df = preprocess_earthquake_data(df)
 
-# 국가 필터링을 위한 좌표 범위 설정 (일부 예시)
+# 국가 필터링을 위한 좌표 범위 설정
 country_bounds = {
-    "Japan": [30, 46, 129, 146],   # lat_min, lat_max, lon_min, lon_max
+    "Japan": [30, 46, 129, 146],
     "USA": [24, 50, -125, -66],
     "Chile": [-56, -17, -76, -66],
     "Indonesia": [-11, 6, 95, 141],
-    "South Korea": [33, 39, 124, 132]
+    "South Korea": [33, 39, 124, 130.5],
+    "Turkey": [36, 42, 26, 45],
+    "Iceland": [63, 67, -25, -13],
+    "Mid-Atlantic Ridge": [-60, 60, -40, -10],
+    "New Zealand": [-47, -33, 165, 180],
+    "Philippines": [5, 20, 117, 127]
 }
+
 
 selected_country = st.selectbox("국가 선택", list(country_bounds.keys()))
 lat_min, lat_max, lon_min, lon_max = country_bounds[selected_country]
