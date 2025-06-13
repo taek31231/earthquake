@@ -27,6 +27,7 @@ df = preprocess_earthquake_data(df)  # 여기서 이미 규모 3.0~7.5로 필터
 country_bounds = {
     "Japan": [30, 46, 129, 146],
     "USA": [24, 50, -125, -66],
+    "Yellowstone National Park": [44.0, 45.5, -111.5, -109.5]
     "Chile": [-56, -17, -76, -66],
     "Indonesia": [-11, 6, 95, 141],
     "South Korea": [33, 39, 124, 130.5],
