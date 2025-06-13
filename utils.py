@@ -55,5 +55,5 @@ def plot_residuals(result_df):
     ax.axhline(0, color='black', linestyle='--')
     ax.set_xlabel("Magnitude")
     ax.set_ylabel("Residual")
-    ax.set_title("잔차 (관측 log10 - 예측 log10)")
+    ax.set_title("Anomaly (관측 log10 - 예측 log10)")
     return fig
