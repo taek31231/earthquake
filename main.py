@@ -34,7 +34,9 @@ country_bounds = {
     "Iceland": [63, 67, -25, -13],
     "Mid-Atlantic Ridge": [-60, 60, -40, -10],
     "New Zealand": [-47, -33, 165, 180],
-    "Philippines": [5, 20, 117, 127]
+    "Philippines": [5, 20, 117, 127],
+    "Hawaii": [18, 23, -160, -154],
+    "East African Rift Valley": [-20, 15, 28, 48]
 }
 
 # 사용자 입력 - 국가 선택
