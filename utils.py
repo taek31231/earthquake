@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 def preprocess_earthquake_data(df):
     df['Magnitude'] = pd.to_numeric(df['Magnitude'], errors='coerce')
     df = df.dropna(subset=['Magnitude'])
+    df = df[(df['Magnitude'] >= 3.0) & (df['Magnitude'] <= 7.5)]  # 필터 적용
     df['Magnitude_Rounded'] = df['Magnitude'].round(1)
     return df
 
@@ -17,7 +18,7 @@ def count_and_log_transform(df):
 def fit_gutenberg_richter(X, y):
     model = LinearRegression().fit(X, y)
     a = model.intercept_[0]
-    b = -model.coef_[0][0]  # Gutenberg-Richter에서 b는 음수 부호로 표현
+    b = -model.coef_[0][0]
     y_pred = model.predict(X).flatten()
     residuals = y.flatten() - y_pred
     return a, b, y_pred, residuals
@@ -32,28 +33,62 @@ def make_result_df(mag_counts, log_counts, y_pred, residuals):
     })
 
 def plot_bar_counts(result_df):
-    fig, ax = plt.subplots()
-    ax.bar(result_df['Magnitude'], result_df['Count'], width=0.08, color='skyblue')
-    ax.set_xlabel("Magnitude")
-    ax.set_ylabel("Occurrences")
-    ax.set_title("규모별 발생 횟수")
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=result_df['Magnitude'],
+        y=result_df['Count'],
+        marker_color='skyblue',
+        marker_line_color='black',
+        marker_line_width=1
+    ))
+    fig.update_layout(
+        title="규모별 발생 횟수",
+        xaxis_title="Magnitude",
+        yaxis_title="Occurrences",
+        bargap=0.1
+    )
     return fig
 
 def plot_regression(result_df, a, b):
-    fig, ax = plt.subplots()
-    ax.scatter(result_df['Magnitude'], result_df['log10(Count)'], label='Observed', color='blue')
-    ax.plot(result_df['Magnitude'], result_df['Predicted log10(Count)'], label='Predicted (GR Law)', color='red')
-    ax.set_xlabel("Magnitude")
-    ax.set_ylabel("log10(Occurrences)")
-    ax.set_title(f"log10(N) = {a:.2f} - {b:.2f}M")
-    ax.legend()
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=result_df['Magnitude'],
+        y=result_df['log10(Count)'],
+        mode='markers',
+        name='Observed',
+        marker=dict(color='blue')
+    ))
+    fig.add_trace(go.Scatter(
+        x=result_df['Magnitude'],
+        y=result_df['Predicted log10(Count)'],
+        mode='lines',
+        name='Predicted (GR Law)',
+        line=dict(color='red')
+    ))
+    fig.update_layout(
+        title=f"log10(N) = {a:.2f} - {b:.2f}M",
+        xaxis_title="Magnitude",
+        yaxis_title="log10(Occurrences)"
+    )
     return fig
 
 def plot_residuals(result_df):
-    fig, ax = plt.subplots()
-    ax.bar(result_df['Magnitude'], result_df['Residual'], width=0.08, color='orange')
-    ax.axhline(0, color='black', linestyle='--')
-    ax.set_xlabel("Magnitude")
-    ax.set_ylabel("Residual")
-    ax.set_title("Anomaly (관측 log10 - 예측 log10)")
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=result_df['Magnitude'],
+        y=result_df['Residual'],
+        marker_color='orange'
+    ))
+    fig.add_trace(go.Scatter(
+        x=result_df['Magnitude'],
+        y=[0]*len(result_df),
+        mode='lines',
+        line=dict(color='black', dash='dash'),
+        name='Zero Line'
+    ))
+    fig.update_layout(
+        title="Anomaly (관측 log10 - 예측 log10)",
+        xaxis_title="Magnitude",
+        yaxis_title="Residual"
+    )
     return fig
