@@ -20,7 +20,7 @@ st.set_page_config(page_title="지진 발생 분석 대시보드", layout="wide"
 st.title("🌍 전 세계 지진 분석 (2001~2023)")
 
 # 데이터 업로드
-df = pd.read_csv("streamlit_app/database.csv")
+df = pd.read_csv("data/database.csv")
 df = preprocess_earthquake_data(df)
 
 # 국가 필터링을 위한 좌표 범위 설정 (일부 예시)
