@@ -17,7 +17,7 @@ from utils import (
 
 # 페이지 설정
 st.set_page_config(page_title="지진 발생 분석 대시보드", layout="wide")
-st.title("🌍 전 세계 지진 분석 (1965~2016)")
+st.title("🌍 전 세계 지진 분석 (2001~2023)")
 
 # 데이터 로딩 및 전처리
 df = pd.read_csv("data/database.csv")
