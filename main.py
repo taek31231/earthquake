@@ -90,4 +90,4 @@ st.plotly_chart(plot_residuals(result_df), use_container_width=True)
 
 # 가장 양의 잔차가 큰 지진 규모 (예측보다 실제 발생이 많은 규모)
 most_underestimated = result_df.loc[result_df['Residual'].idxmin()]
-st.markdown(f"#### 📌 곧 발생 가능성이 가장 높은 지진 규모는: **{worst_residual['Magnitude']}**")
+st.markdown(f"#### 📌 곧 발생 가능성이 가장 높은 지진 규모는: **{most_residual['Magnitude']}**")
