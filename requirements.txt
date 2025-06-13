@@ -6,3 +6,4 @@ scikit-learn
 streamlit
 plotly
 koreanize-matplotlib
+folium
